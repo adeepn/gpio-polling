@@ -2,25 +2,42 @@
 
 import gpiod
 import sys
-# This is a sample Python script.
+import time
+import os
 
-# Press Shift+F10 to execute it or replace it with your code.
-# Press Double Shift to search everywhere for classes, files, tool windows, actions, and settings.
+DEBUG = False
 
 
-def print_hi(name):
-    # Use a breakpoint in the code line below to debug your script.
-    print(f'Hi, {name}')  # Press Ctrl+F8 to toggle the breakpoint.
+def onchange(cmd, value):
+    if DEBUG:
+        print(f'Get new value: {value}')
+    os.system(cmd + f' {value}')
 
-# Press the green button in the gutter to run the script.
+
 if __name__ == '__main__':
-    if len(sys.argv) > 2:
+    if len(sys.argv) > 3:
         GPIO_CHIP = sys.argv[1]
         GPIO_LINE = int(sys.argv[2])
+        GPIO_CMD = sys.argv[3]
     else:
         print(f'''Usage:
-        python3 {sys.argv[0]} <chip> <line offset>''')
+        python3 {sys.argv[0]} <chip> <line offset> <cmd to exec on input change>
+        gpio line must be unexported from sysfs before use''')
         sys.exit()
-    print_hi('PyCharm')
+    chip = gpiod.chip(GPIO_CHIP)
+    GPIOline = chip.get_line(GPIO_LINE)
+    config = gpiod.line_request()
+    config.consumer = f"Get value from gpiochip{GPIO_CHIP} line {GPIO_LINE}"
+    config.request_type = gpiod.line_request.DIRECTION_INPUT
 
-# See PyCharm help at https://www.jetbrains.com/help/pycharm/
+    GPIOline.request(config)
+
+    print(GPIOline.consumer)
+
+    val = -1
+    while True:
+        nval = GPIOline.get_value()
+        if nval != val:
+            onchange(GPIO_CMD, nval)
+            val = nval
+        time.sleep(0.05)
